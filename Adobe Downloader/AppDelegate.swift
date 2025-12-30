@@ -17,6 +17,7 @@ struct BlurView: NSViewRepresentable {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var eventMonitor: Any?
+    private var statusItem: NSStatusItem?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let window = NSApp.windows.first {
@@ -35,6 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         PrivilegedHelperAdapter.shared.executeCommand("id -u") { _ in }
+        setupStatusItem()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -88,4 +90,59 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(monitor)
         }
     }
-} 
+    
+    private func setupStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = item.button {
+            button.image = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: "Adobe Downloader")
+        }
+        
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(
+            title: String(localized: "打开 Adobe Downloader"),
+            action: #selector(openMainWindow),
+            keyEquivalent: "o"
+        ))
+        menu.addItem(NSMenuItem(
+            title: String(localized: "检查更新"),
+            action: #selector(checkForUpdates),
+            keyEquivalent: "u"
+        ))
+        menu.addItem(NSMenuItem(
+            title: String(localized: "设置…"),
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        ))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(
+            title: String(localized: "退出"),
+            action: #selector(quitApp),
+            keyEquivalent: "q"
+        ))
+        
+        item.menu = menu
+        statusItem = item
+    }
+    
+    @objc private func openMainWindow() {
+        NotificationCenter.default.post(name: .openMainWindow, object: nil)
+    }
+    
+    @objc private func openSettings() {
+        NotificationCenter.default.post(name: .openSettings, object: nil)
+    }
+    
+    @objc private func checkForUpdates() {
+        NotificationCenter.default.post(name: .triggerCheckForUpdates, object: nil)
+    }
+    
+    @objc private func quitApp() {
+        NSApplication.shared.terminate(nil)
+    }
+}
+
+extension Notification.Name {
+    static let openMainWindow = Notification.Name("openMainWindow")
+    static let openSettings = Notification.Name("openSettings")
+    static let triggerCheckForUpdates = Notification.Name("triggerCheckForUpdates")
+}

@@ -105,6 +105,14 @@ final class StorageData: ObservableObject {
             NotificationCenter.default.post(name: .storageDidChange, object: nil)
         }
     }
+
+    @Published var autoUpdateEnabledByBundleId: [String: Bool] {
+        didSet {
+            UserDefaults.standard.set(autoUpdateEnabledByBundleId, forKey: "autoUpdateEnabledByBundleId")
+            objectWillChange.send()
+            NotificationCenter.default.post(name: .storageDidChange, object: nil)
+        }
+    }
     
     var allowedPlatform: [String] {
         if downloadAppleSilicon {
@@ -126,7 +134,7 @@ final class StorageData: ObservableObject {
         self.installedHelperBuild = UserDefaults.standard.string(forKey: "InstalledHelperBuild") ?? "0"
         self.downloadAppleSilicon = UserDefaults.standard.bool(forKey: "downloadAppleSilicon")
         self.useDefaultLanguage = UserDefaults.standard.bool(forKey: "useDefaultLanguage")
-        self.defaultLanguage = UserDefaults.standard.string(forKey: "defaultLanguage") ?? "ALL"
+        self.defaultLanguage = UserDefaults.standard.string(forKey: "defaultLanguage") ?? "en_US"
         self.useDefaultDirectory = UserDefaults.standard.bool(forKey: "useDefaultDirectory")
         self.defaultDirectory = UserDefaults.standard.string(forKey: "defaultDirectory") ?? ""
         self.confirmRedownload = UserDefaults.standard.bool(forKey: "confirmRedownload")
@@ -134,6 +142,7 @@ final class StorageData: ObservableObject {
         self.chunkSizeMB = UserDefaults.standard.integer(forKey: "chunkSizeMB") == 0 ? 2 : UserDefaults.standard.integer(forKey: "chunkSizeMB")
         self.apiVersion = UserDefaults.standard.string(forKey: "apiVersion") ?? "6"
         self.deleteCompletedTasksWithFiles = UserDefaults.standard.bool(forKey: "deleteCompletedTasksWithFiles")
+        self.autoUpdateEnabledByBundleId = UserDefaults.standard.dictionary(forKey: "autoUpdateEnabledByBundleId") as? [String: Bool] ?? [:]
     }
 }
 
@@ -170,4 +179,3 @@ extension UserDefaults {
         return object(forKey: key) != nil
     }
 }
-

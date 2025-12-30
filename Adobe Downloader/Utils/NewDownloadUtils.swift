@@ -539,6 +539,7 @@ class NewDownloadUtils {
                     language: task.language,
                     productInfo: productInfo,
                     displayName: task.displayName,
+                    installDirectory: task.directory.path,
                     modules: selectedModules
                 )
                 do {
@@ -704,6 +705,7 @@ class NewDownloadUtils {
                     language: task.language,
                     productInfo: productInfo,
                     displayName: task.displayName,
+                    installDirectory: task.directory.path,
                     modules: selectedModules
                 )
                 do {
@@ -1047,7 +1049,7 @@ class NewDownloadUtils {
         }
     }
 
-    func generateDriverXML(version: String, language: String, productInfo: Product, displayName: String, modules: [[String: Any]] = []) -> String {
+    func generateDriverXML(version: String, language: String, productInfo: Product, displayName: String, installDirectory: String, modules: [[String: Any]] = []) -> String {
         // 获取匹配的 platform 和 languageSet
         guard let platform = globalProducts.first(where: { $0.id == productInfo.id && $0.version == version })?.platforms.first?.id,
               let languageSet = globalProducts.first(where: { $0.id == productInfo.id && $0.version == version })?.platforms.first?.languageSet else {
@@ -1084,6 +1086,8 @@ class NewDownloadUtils {
         let buildGuid = productInfo.platforms.first?.languageSet.first?.buildGuid ?? ""
         let buildVersion = languageSet.first?.productVersion ?? ""
         
+        let installDir = installDirectory.isEmpty ? "/Applications" : installDirectory
+        
         return """
         <DriverInfo>
             <ProductInfo>
@@ -1101,7 +1105,7 @@ class NewDownloadUtils {
                 <SAPCode>\(productInfo.id)</SAPCode>
             </ProductInfo>
             <RequestInfo>
-                <InstallDir>/Applications</InstallDir>
+                <InstallDir>\(installDir)</InstallDir>
                 <InstallLanguage>\(language)</InstallLanguage>
             </RequestInfo>
         </DriverInfo>

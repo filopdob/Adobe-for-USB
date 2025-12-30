@@ -691,51 +691,58 @@ struct DirectorySettingRow: View {
     @ObservedObject var viewModel: GeneralSettingsViewModel
 
     var body: some View {
-        HStack(spacing: 10) {
-            Toggle("使用默认目录", isOn: $viewModel.useDefaultDirectory)
-                .toggleStyle(SwitchToggleStyle(tint: Color.green))
-                .padding(.leading, 5)
-                .controlSize(.small)
-                .labelsHidden()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Toggle("使用默认目录", isOn: $viewModel.useDefaultDirectory)
+                    .toggleStyle(SwitchToggleStyle(tint: Color.green))
+                    .padding(.leading, 5)
+                    .controlSize(.small)
+                    .labelsHidden()
+                    
+                Text("使用默认目录")
+                    .font(.system(size: 14))
+                    
+                Spacer()
                 
-            Text("使用默认目录")
-                .font(.system(size: 14))
-                
-            Spacer()
-            
-            if viewModel.useDefaultDirectory {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder")
-                        .foregroundColor(.secondary)
-                        .font(.system(size: 12))
-                        .frame(width: 16)
-                    Text(formatPath(viewModel.defaultDirectory))
-                        .foregroundColor(.secondary)
-                        .font(.system(size: 13))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                .padding(.vertical, 3)
-                .padding(.horizontal, 8)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(5)
-                
-                Button(action: {
-                    selectDirectory()
-                }) {
+                if viewModel.useDefaultDirectory {
                     HStack(spacing: 4) {
-                        Image(systemName: "folder.badge.plus")
-                            .font(.system(size: 10))
-                        Text("选择")
+                        Image(systemName: "folder")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                            .frame(width: 16)
+                        Text(formatPath(viewModel.defaultDirectory))
+                            .foregroundColor(.secondary)
                             .font(.system(size: 13))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .frame(minWidth: 60)
+                    .padding(.vertical, 3)
+                    .padding(.horizontal, 8)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(5)
+                    
+                    Button(action: {
+                        selectDirectory()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 10))
+                            Text("选择")
+                                .font(.system(size: 13))
+                        }
+                        .frame(minWidth: 60)
+                    }
+                    .buttonStyle(BeautifulButtonStyle(baseColor: Color.blue.opacity(0.8)))
+                    .foregroundColor(.white)
+                    .padding(.trailing, 5)
+                    .disabled(!viewModel.useDefaultDirectory)
                 }
-                .buttonStyle(BeautifulButtonStyle(baseColor: Color.blue.opacity(0.8)))
-                .foregroundColor(.white)
-                .padding(.trailing, 5)
-                .disabled(!viewModel.useDefaultDirectory)
             }
+            
+            Text("下载目录也会作为安装位置，适合外置硬盘或自定义位置。")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .padding(.leading, 5)
         }
     }
 

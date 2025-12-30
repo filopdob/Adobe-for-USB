@@ -309,6 +309,195 @@ class NetworkManager: ObservableObject {
         return nil
     }
 
+    func startUpdateDownload(productId: String, version: String) async throws {
+        guard useDefaultDirectory, !defaultDirectory.isEmpty else {
+            throw NetworkError.invalidData("请先在设置中选择下载/安装目录")
+        }
+        
+        let language = StorageData.shared.defaultLanguage
+        let platform = globalProducts.first(where: { $0.id == productId && $0.version == version })?.platforms.first?.id ?? "unknown"
+        let installerName = productId == "APRO"
+            ? "Adobe Downloader \(productId)_\(version)_\(platform).dmg"
+            : "Adobe Downloader \(productId)_\(version)-\(language)-\(platform)"
+        let destinationURL = URL(fileURLWithPath: defaultDirectory).appendingPathComponent(installerName)
+        
+        let dependencies = try await buildDependenciesForProduct(
+            productId: productId,
+            version: version,
+            language: language
+        )
+        
+        try await startCustomDownload(
+            productId: productId,
+            selectedVersion: version,
+            language: language,
+            destinationURL: destinationURL,
+            customDependencies: dependencies
+        )
+    }
+
+    private func buildDependenciesForProduct(productId: String, version: String, language: String) async throws -> [DependenciesToDownload] {
+        guard let product = findProduct(id: productId, version: version) else {
+            throw NetworkError.productNotFound
+        }
+        
+        var dependenciesToDownload: [DependenciesToDownload] = []
+        
+        let firstPlatform = product.platforms.first
+        let buildGuid = firstPlatform?.languageSet.first?.buildGuid ?? ""
+        
+        var dependencyInfos: [DependenciesToDownload] = []
+        dependencyInfos.append(DependenciesToDownload(sapCode: product.id, version: product.version, buildGuid: buildGuid))
+        
+        let dependencies = firstPlatform?.languageSet.first?.dependencies
+        if let dependencies = dependencies {
+            for dependency in dependencies {
+                dependencyInfos.append(DependenciesToDownload(sapCode: dependency.sapCode, version: dependency.productVersion, buildGuid: dependency.buildGuid))
+            }
+        }
+        
+        let targetArchitecture = StorageData.shared.downloadAppleSilicon ? "arm64" : "x64"
+        let installLanguage = "[installLanguage]==\(language)"
+        
+        for dependencyInfo in dependencyInfos {
+            let jsonString = try await globalNetworkService.getApplicationInfo(buildGuid: dependencyInfo.buildGuid)
+            dependencyInfo.applicationJson = jsonString
+            
+            var processedJsonString = jsonString
+            if dependencyInfo.sapCode == product.id {
+                if let jsonData = jsonString.data(using: .utf8),
+                   var appInfo = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                    if var modules = appInfo["Modules"] as? [String: Any] {
+                        modules["Module"] = [] as [[String: Any]]
+                        appInfo["Modules"] = modules
+                    }
+                    
+                    if let processedData = try? JSONSerialization.data(withJSONObject: appInfo, options: .prettyPrinted),
+                       let processedString = String(data: processedData, encoding: .utf8) {
+                        processedJsonString = processedString
+                    }
+                }
+            }
+            
+            guard let jsonData = processedJsonString.data(using: .utf8),
+                  let appInfo = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let packages = appInfo["Packages"] as? [String: Any],
+                  let packageArray = packages["Package"] as? [[String: Any]] else {
+                throw NetworkError.invalidData("无法解析产品信息")
+            }
+            
+            for package in packageArray {
+                guard let downloadURL = package["Path"] as? String, !downloadURL.isEmpty else { continue }
+                
+                let packageVersion: String = package["PackageVersion"] as? String ?? ""
+                let fullPackageName: String
+                
+                if let name = package["fullPackageName"] as? String, !name.isEmpty {
+                    fullPackageName = name
+                } else if let name = package["PackageName"] as? String, !name.isEmpty {
+                    fullPackageName = "\(name).zip"
+                } else {
+                    continue
+                }
+                
+                let downloadSize: Int64
+                switch package["DownloadSize"] {
+                case let sizeNumber as NSNumber:
+                    downloadSize = sizeNumber.int64Value
+                case let sizeString as String:
+                    downloadSize = Int64(sizeString) ?? 0
+                default:
+                    downloadSize = 0
+                }
+                
+                let packageType = package["Type"] as? String ?? "non-core"
+                let condition = package["Condition"] as? String ?? ""
+                
+                let isCore = packageType == "core"
+                var shouldDefaultSelect = false
+                var isRequired = false
+                
+                if dependencyInfo.sapCode == product.id {
+                    if isCore {
+                        shouldDefaultSelect = condition.isEmpty ||
+                            condition.contains("[OSArchitecture]==\(targetArchitecture)") ||
+                            condition.contains(installLanguage) || language == "ALL"
+                        isRequired = shouldDefaultSelect
+                    } else {
+                        shouldDefaultSelect = condition.contains(installLanguage) || language == "ALL"
+                    }
+                } else {
+                    shouldDefaultSelect = condition.isEmpty ||
+                        (condition.contains("[OSVersion]") && checkOSVersionCondition(condition)) ||
+                        condition.contains(installLanguage) || language == "ALL"
+                }
+                
+                if fullPackageName.contains("SuperCafModels") {
+                    shouldDefaultSelect = true
+                }
+                
+                let packageObj = Package(
+                    type: packageType,
+                    fullPackageName: fullPackageName,
+                    downloadSize: downloadSize,
+                    downloadURL: downloadURL,
+                    packageVersion: packageVersion,
+                    condition: condition,
+                    isRequired: isRequired
+                )
+                
+                packageObj.isSelected = shouldDefaultSelect
+                dependencyInfo.packages.append(packageObj)
+            }
+            
+            dependenciesToDownload.append(dependencyInfo)
+        }
+        
+        return dependenciesToDownload
+    }
+
+    private func checkOSVersionCondition(_ condition: String) -> Bool {
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        let currentVersion = Double("\(osVersion.majorVersion).\(osVersion.minorVersion)") ?? 0.0
+        
+        let versionPattern = #"\[OSVersion\](>=|<=|<|>|==)([\d.]+)"#
+        guard let regex = try? NSRegularExpression(pattern: versionPattern) else { return false }
+        
+        let nsRange = NSRange(condition.startIndex..<condition.endIndex, in: condition)
+        let matches = regex.matches(in: condition, range: nsRange)
+        
+        for match in matches {
+            guard match.numberOfRanges >= 3,
+                  let operatorRange = Range(match.range(at: 1), in: condition),
+                  let versionRange = Range(match.range(at: 2), in: condition),
+                  let requiredVersion = Double(condition[versionRange]) else { continue }
+            
+            let operatorSymbol = String(condition[operatorRange])
+            if !compareVersions(current: currentVersion, required: requiredVersion, operator: operatorSymbol) {
+                return false
+            }
+        }
+        
+        return !matches.isEmpty
+    }
+    
+    private func compareVersions(current: Double, required: Double, operator: String) -> Bool {
+        switch `operator` {
+        case ">=":
+            return current >= required
+        case "<=":
+            return current <= required
+        case ">":
+            return current > required
+        case "<":
+            return current < required
+        case "==":
+            return current == required
+        default:
+            return false
+        }
+    }
+
     func updateDockBadge() {
         let activeCount = downloadTasks.filter { task in
             if case .completed = task.totalStatus {

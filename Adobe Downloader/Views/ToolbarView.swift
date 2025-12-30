@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BeautifulSearchField: View {
     @Binding var text: String
+    var placeholder: String = "搜索应用"
     
     var body: some View {
         HStack(spacing: 8) {
@@ -9,7 +10,7 @@ struct BeautifulSearchField: View {
                 .font(.system(size: 13))
                 .foregroundColor(.secondary.opacity(0.7))
             
-            TextField("搜索应用", text: $text)
+            TextField(placeholder, text: $text)
                 .textFieldStyle(PlainTextFieldStyle())
                 .font(.system(size: 13))
             
@@ -88,9 +89,11 @@ struct ToolbarView: View {
     @Binding var downloadAppleSilicon: Bool
     @Binding var currentApiVersion: String
     @Binding var searchText: String
+    @Binding var selectedTab: MainTab
     @Binding var showDownloadManager: Bool
     let isRefreshing: Bool
     let downloadTasksCount: Int
+    let searchPlaceholder: String
     let onRefresh: () -> Void
     let openSettings: () -> Void
     
@@ -141,8 +144,17 @@ struct ToolbarView: View {
             }
             .disabled(isRefreshing)
             
+            Picker("", selection: $selectedTab) {
+                Text("浏览").tag(MainTab.browse)
+                Text("已安装").tag(MainTab.installed)
+                Text("已下载").tag(MainTab.downloaded)
+            }
+            .pickerStyle(.segmented)
+            .modifier(FlatSegmentedPickerStyle())
+            .frame(width: 220)
+
             HStack(spacing: 8) {
-                BeautifulSearchField(text: $searchText)
+                BeautifulSearchField(text: $searchText, placeholder: searchPlaceholder)
                     .frame(maxWidth: 200)
 
                 Button(action: openSettings) {

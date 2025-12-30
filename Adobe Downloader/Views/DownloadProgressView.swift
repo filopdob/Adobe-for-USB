@@ -219,8 +219,13 @@ struct DownloadProgressView: View {
         .sheet(isPresented: $showInstallPrompt) {
             if task.displayInstallButton {
                 VStack(spacing: 20) {
-                    Text("是否要安装 \(task.displayName)?")
+                    Text(String(format: String(localized: "是否要安装 %1$@?"), task.displayName))
                         .font(.headline)
+                    
+                    Text(String(format: String(localized: "安装位置：%1$@\n可在设置中修改下载/安装目录"), task.directory.path))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                     
                     HStack(spacing: 16) {
                         Button("取消") {

@@ -24,6 +24,7 @@ import ServiceManagement
 }
 
 @objcMembers
+@available(macOS, deprecated: 13.0, message: "Use SMAppServiceDaemonHelperManager instead.")
 class SMJobBlessHelperManager: NSObject, ObservableObject {
 
     enum HelperStatus {
@@ -573,7 +574,7 @@ class SMJobBlessHelperManager: NSObject, ObservableObject {
                     completion(false, String(localized: "获取授权失败"))
                 case .getAdminFail:
                     completion(false, String(localized: "获取管理员权限失败"))
-                case .blessError(let code):
+                case .blessError:
                     completion(false, String(localized: "安装失败: \(result.alertContent)"))
                 }
             }

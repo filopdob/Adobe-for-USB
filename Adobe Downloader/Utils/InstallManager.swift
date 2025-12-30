@@ -266,7 +266,7 @@ actor InstallManager {
             }
         }
         
-        if let progress = await self.parseProgress(from: output) {
+        if let progress = self.parseProgress(from: output) {
             await MainActor.run {
                 progressHandler(progress, String(localized: "正在安装..."))
             }

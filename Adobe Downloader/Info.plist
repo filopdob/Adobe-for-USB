@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -14,10 +12,14 @@
 		<key>com.x1a0he.macOS.Adobe-Downloader.helper</key>
 		<string>identifier "com.x1a0he.macOS.Adobe-Downloader.helper" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: x1a0he@outlook.com (LFN2762T4F)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
 	</dict>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/X1a0He/Adobe-Downloader/refs/heads/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>gYylad3ybfiyK5ZTS3xRrw+3c/8063mpXdQnPpMB86Q=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 	<key>com.apple.security.files.downloads.read-write</key>
 	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>

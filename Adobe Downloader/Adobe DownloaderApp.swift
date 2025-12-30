@@ -17,6 +17,10 @@ struct Adobe_DownloaderApp: App {
     private let updaterController: SPUStandardUpdaterController
 
     init() {
+        let preferredLanguage = UserDefaults.standard.string(forKey: "AppLanguageOverride") ?? "en"
+        UserDefaults.standard.set([preferredLanguage, "zh-Hans"], forKey: "AppleLanguages")
+        UserDefaults.standard.synchronize()
+
         globalNetworkService = NewNetworkService()
         globalNetworkManager = NetworkManager()
         globalNewDownloadUtils = NewDownloadUtils()
@@ -25,6 +29,7 @@ struct Adobe_DownloaderApp: App {
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
+        updaterController.updater.automaticallyChecksForUpdates = true
         
         if storage.installedHelperBuild == "0" {
             storage.installedHelperBuild = "0"
@@ -43,11 +48,7 @@ struct Adobe_DownloaderApp: App {
         storage.downloadAppleSilicon = AppStatics.isAppleSilicon
         storage.confirmRedownload = true
         
-        let systemLanguage = Locale.current.identifier
-        let matchedLanguage = AppStatics.supportedLanguages.first {
-            systemLanguage.hasPrefix($0.code.prefix(2))
-        }?.code ?? "ALL"
-        storage.defaultLanguage = matchedLanguage
+        storage.defaultLanguage = "en_US"
         storage.useDefaultLanguage = true
         
         if let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first {
@@ -68,6 +69,16 @@ struct Adobe_DownloaderApp: App {
                     .tint(.blue)
                     .task {
                         await setupApplication()
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .openMainWindow)) { _ in
+                        NSApp.activate(ignoringOtherApps: true)
+                        NSApp.windows.first?.makeKeyAndOrderFront(nil)
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+                        showSettingsView = true
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .triggerCheckForUpdates)) { _ in
+                        updaterController.updater.checkForUpdates()
                     }
                     .sheet(isPresented: $showCreativeCloudAlert) {
                         ShouldExistsSetUpView()

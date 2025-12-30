@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum MainTab: String, CaseIterable {
+    case browse
+    case installed
+    case downloaded
+}
+
 struct ContentView: View {
     @StateObject private var networkManager = globalNetworkManager
     @State private var isRefreshing = false
@@ -7,6 +13,7 @@ struct ContentView: View {
     @State private var showDownloadManager = false
     @State private var searchText = ""
     @State private var currentApiVersion = StorageData.shared.apiVersion
+    @State private var selectedTab: MainTab = .browse
     @Binding var showSettingsView: Bool
 
     private var filteredProducts: [UniqueProduct] {
@@ -14,6 +21,17 @@ struct ContentView: View {
         return globalUniqueProducts.filter {
             $0.displayName.localizedCaseInsensitiveContains(searchText) || 
             $0.id.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
+    private var searchPlaceholder: String {
+        switch selectedTab {
+        case .browse:
+            return String(localized: "搜索应用")
+        case .installed:
+            return String(localized: "搜索已安装")
+        case .downloaded:
+            return String(localized: "搜索已下载")
         }
     }
 
@@ -44,20 +62,31 @@ struct ContentView: View {
                 ),
                 currentApiVersion: $currentApiVersion,
                 searchText: $searchText,
+                selectedTab: $selectedTab,
                 showDownloadManager: $showDownloadManager,
                 isRefreshing: isRefreshing,
                 downloadTasksCount: networkManager.downloadTasks.count,
+                searchPlaceholder: searchPlaceholder,
                 onRefresh: refreshData,
                 openSettings: openSettings
             )
             
             BannerView()
-            
-            MainContentView(
-                loadingState: networkManager.loadingState,
-                filteredProducts: filteredProducts,
-                onRetry: { networkManager.retryFetchData() }
-            )
+
+            Group {
+                switch selectedTab {
+                case .browse:
+                    MainContentView(
+                        loadingState: networkManager.loadingState,
+                        filteredProducts: filteredProducts,
+                        onRetry: { networkManager.retryFetchData() }
+                    )
+                case .installed:
+                    InstalledAppsView(searchText: $searchText)
+                case .downloaded:
+                    DownloadedAppsView(searchText: $searchText)
+                }
+            }
             .background(Color(.clear))
             .animation(.easeInOut, value: networkManager.loadingState)
             .animation(.easeInOut, value: filteredProducts)
