@@ -106,13 +106,6 @@ final class StorageData: ObservableObject {
         }
     }
 
-    @Published var autoUpdateEnabledByBundleId: [String: Bool] {
-        didSet {
-            UserDefaults.standard.set(autoUpdateEnabledByBundleId, forKey: "autoUpdateEnabledByBundleId")
-            objectWillChange.send()
-            NotificationCenter.default.post(name: .storageDidChange, object: nil)
-        }
-    }
     
     var allowedPlatform: [String] {
         if downloadAppleSilicon {
@@ -142,7 +135,6 @@ final class StorageData: ObservableObject {
         self.chunkSizeMB = UserDefaults.standard.integer(forKey: "chunkSizeMB") == 0 ? 2 : UserDefaults.standard.integer(forKey: "chunkSizeMB")
         self.apiVersion = UserDefaults.standard.string(forKey: "apiVersion") ?? "6"
         self.deleteCompletedTasksWithFiles = UserDefaults.standard.bool(forKey: "deleteCompletedTasksWithFiles")
-        self.autoUpdateEnabledByBundleId = UserDefaults.standard.dictionary(forKey: "autoUpdateEnabledByBundleId") as? [String: Bool] ?? [:]
     }
 }
 

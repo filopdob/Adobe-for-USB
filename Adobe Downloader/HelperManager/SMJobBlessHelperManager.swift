@@ -652,6 +652,7 @@ class SMJobBlessHelperManager: NSObject, ObservableObject {
     }
 }
 
+@available(macOS, deprecated: 13.0, message: "Use SMAppServiceDaemonHelperManager instead.")
 extension SMJobBlessHelperManager {
     private func notifyInstall() {
         guard !isInitializing else { return }
@@ -775,6 +776,7 @@ enum HelperError: LocalizedError {
     }
 }
 
+@available(macOS, deprecated: 13.0, message: "Use SMAppServiceDaemonHelperManager instead.")
 extension SMJobBlessHelperManager {
     public func getHelperProxy() throws -> HelperToolProtocol {
         if connectionState != .connected {

@@ -17,8 +17,6 @@ final class InstalledAppsViewModel: ObservableObject {
     @Published var isScanning = false
     @Published var errorMessage: String?
     
-    private var autoUpdateTriggered: Set<String> = []
-    
     func refresh(directoryPath: String) {
         guard !directoryPath.isEmpty else {
             installedApps = []
@@ -33,18 +31,6 @@ final class InstalledAppsViewModel: ObservableObject {
             let apps = await scanInstalledApps(in: URL(fileURLWithPath: directoryPath))
             installedApps = apps
             isScanning = false
-        }
-    }
-    
-    func triggerAutoUpdatesIfNeeded(storage: StorageData) {
-        for app in installedApps where app.updateAvailable {
-            let enabled = storage.autoUpdateEnabledByBundleId[app.bundleId] ?? false
-            guard enabled, !autoUpdateTriggered.contains(app.bundleId) else { continue }
-            autoUpdateTriggered.insert(app.bundleId)
-            
-            Task {
-                await updateApp(app)
-            }
         }
     }
     
@@ -180,7 +166,6 @@ struct InstalledAppsView: View {
                     ForEach(filteredApps) { app in
                         InstalledAppRow(
                             app: app,
-                            autoUpdateEnabled: autoUpdateBinding(for: app.bundleId),
                             onUpdate: { Task { await viewModel.updateApp(app) } }
                         )
                     }
@@ -201,9 +186,6 @@ struct InstalledAppsView: View {
         }
         .onChange(of: storage.defaultDirectory) { newValue in
             viewModel.refresh(directoryPath: newValue)
-        }
-        .onChange(of: viewModel.installedApps) { _ in
-            viewModel.triggerAutoUpdatesIfNeeded(storage: storage)
         }
     }
     
@@ -226,12 +208,6 @@ struct InstalledAppsView: View {
         }
     }
     
-    private func autoUpdateBinding(for bundleId: String) -> Binding<Bool> {
-        Binding(
-            get: { storage.autoUpdateEnabledByBundleId[bundleId] ?? false },
-            set: { newValue in storage.autoUpdateEnabledByBundleId[bundleId] = newValue }
-        )
-    }
 }
 
 private struct InstalledAppsHeader: View {
@@ -285,7 +261,6 @@ private struct InstalledAppsHeader: View {
 
 private struct InstalledAppRow: View {
     let app: InstalledAppInfo
-    @Binding var autoUpdateEnabled: Bool
     let onUpdate: () -> Void
     
     var body: some View {
@@ -312,10 +287,6 @@ private struct InstalledAppRow: View {
                         .foregroundColor(app.updateAvailable ? .orange : .secondary)
                 }
             }
-            
-            Toggle(String(localized: "自动更新"), isOn: $autoUpdateEnabled)
-                .toggleStyle(SwitchToggleStyle(tint: .green))
-                .labelsHidden()
             
             Button(action: onUpdate) {
                 Text(app.updateAvailable ? String(localized: "更新") : String(localized: "最新"))
