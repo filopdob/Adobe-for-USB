@@ -339,7 +339,7 @@ class NewDownloadUtils {
                     totalSize: task.totalSize
                 )))
             }
-            await globalNetworkManager.saveTask(task)
+            await finalizeDownload(task: task)
             return
         }
 
@@ -490,7 +490,7 @@ class NewDownloadUtils {
                         totalSize: task.totalSize
                     )))
                 }
-                await globalNetworkManager.saveTask(task)
+                await finalizeDownload(task: task)
             }
             
         } catch {
@@ -512,6 +512,23 @@ class NewDownloadUtils {
                     await handleError(task.id, error)
                 }
             }
+        }
+    }
+
+    private func finalizeDownload(task: NewDownloadTask) async {
+        await globalNetworkManager.saveTask(task)
+        NotificationManager.shared.notifyDownloadFinished(task.displayName)
+        await autoInstallIfPossible(task: task)
+    }
+    
+    private func autoInstallIfPossible(task: NewDownloadTask) async {
+        guard task.displayInstallButton else { return }
+        guard ModifySetup.isSetupModified() else { return }
+        guard PrivilegedHelperAdapter.shared.connectionState == .connected else { return }
+        
+        let state = await MainActor.run { globalNetworkManager.installationState }
+        if case .idle = state {
+            await globalNetworkManager.installProduct(at: task.directory, productName: task.displayName)
         }
     }
 
@@ -793,7 +810,7 @@ class NewDownloadUtils {
                     totalSize: task.totalSize
                 )))
             }
-            await globalNetworkManager.saveTask(task)
+            await finalizeDownload(task: task)
         }
     }
 
@@ -981,7 +998,13 @@ class NewDownloadUtils {
                         }
 
                         product.updateCompletedPackages()
-                        await globalNetworkManager?.saveTask(task)
+                        if allCompleted {
+                            await globalNetworkManager?.saveTask(task)
+                            NotificationManager.shared.notifyDownloadFinished(task.displayName)
+                            await self.autoInstallIfPossible(task: task)
+                        } else {
+                            await globalNetworkManager?.saveTask(task)
+                        }
                         globalNetworkManager?.objectWillChange.send()
                         continuation.resume()
                     }
@@ -1217,6 +1240,7 @@ class NewDownloadUtils {
 
                         task.objectWillChange.send()
                         await globalNetworkManager?.saveTask(task)
+                        NotificationManager.shared.notifyDownloadFinished(task.displayName)
                         globalNetworkManager?.updateDockBadge()
                         globalNetworkManager?.objectWillChange.send()
                         continuation.resume()

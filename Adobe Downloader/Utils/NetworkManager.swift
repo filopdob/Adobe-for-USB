@@ -188,7 +188,7 @@ class NetworkManager: ObservableObject {
        }
    }
 
-    func installProduct(at path: URL) async {
+    func installProduct(at path: URL, productName: String? = nil) async {
         await MainActor.run {
             installationState = .installing(progress: 0, status: "准备安装...")
         }
@@ -209,6 +209,9 @@ class NetworkManager: ObservableObject {
             
             await MainActor.run {
                 installationState = .completed
+            }
+            if let name = productName {
+                NotificationManager.shared.notifyInstallFinished(name)
             }
         } catch {
             let command = await installManager.getInstallCommand(

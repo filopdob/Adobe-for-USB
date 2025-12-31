@@ -7,6 +7,7 @@
 import SwiftUI
 import Sparkle
 import Combine
+import ServiceManagement
 
 
 private enum AboutViewConstants {
@@ -38,6 +39,8 @@ struct ExternalLinkView: View {
 
 struct HelperView: View {
     @ObservedObject var playgroundViewModel: HelperPlaygroundViewModel
+    @ObservedObject private var helperAdapter = PrivilegedHelperAdapter.shared
+    @State private var showAdvanced = false
 
     init(updater: SPUUpdater, playgroundViewModel: HelperPlaygroundViewModel) {
         _ = updater
@@ -45,13 +48,57 @@ struct HelperView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HelperPlaygroundView(
-                viewModel: playgroundViewModel
-            )
+        VStack(alignment: .leading, spacing: 12) {
+            BeautifulGroupBox(label: { Text(String(localized: "Background Service")) }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(localized: "This service allows installs and file operations that require admin privileges."))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 10) {
+                        Text(String(localized: "Status:"))
+                            .font(.system(size: 13, weight: .medium))
+                        Text(helperAdapter.connectionState.description)
+                            .font(.system(size: 13))
+                            .foregroundColor(helperAdapter.connectionState == .connected ? .green : .orange)
+                    }
+                    
+                    HStack(spacing: 10) {
+                        Button(action: { playgroundViewModel.reinstallHelper() }) {
+                            Label(String(localized: "Fix Now"), systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(BeautifulButtonStyle(baseColor: .blue))
+                        .disabled(playgroundViewModel.isBusy)
+                        
+                        Button(action: { playgroundViewModel.recreateConnection() }) {
+                            Label(String(localized: "Reconnect"), systemImage: "link")
+                        }
+                        .buttonStyle(BeautifulButtonStyle(baseColor: .gray))
+                        .disabled(playgroundViewModel.isBusy)
+                        
+                        Button(action: {
+                            SMAppService.openSystemSettingsLoginItems()
+                        }) {
+                            Label(String(localized: "Open Login Items"), systemImage: "gearshape")
+                        }
+                        .buttonStyle(BeautifulButtonStyle(baseColor: .green))
+                    }
+                }
+            }
+            
+            Toggle(String(localized: "Show Advanced Tools"), isOn: $showAdvanced)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .font(.system(size: 12))
+            
+            if showAdvanced {
+                HelperPlaygroundView(viewModel: playgroundViewModel)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            playgroundViewModel.refreshHelperStatusEventually()
+        }
         .alert(playgroundViewModel.helperAlertSuccess ? "操作成功" : "操作失败", isPresented: $playgroundViewModel.showHelperAlert) {
             Button("确定") { }
         } message: {

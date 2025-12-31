@@ -1,6 +1,18 @@
 import SwiftUI
 import Sparkle
 
+final class UpdateNotifier: NSObject, SPUUpdaterDelegate {
+    private let lastNotifiedKey = "LastUpdateNotifiedVersion"
+    
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        let version = item.displayVersionString ?? item.versionString
+        let lastNotified = UserDefaults.standard.string(forKey: lastNotifiedKey)
+        guard lastNotified != version else { return }
+        UserDefaults.standard.set(version, forKey: lastNotifiedKey)
+        NotificationManager.shared.notifyUpdateAvailable(version)
+    }
+}
+
 @main
 struct Adobe_DownloaderApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -15,6 +27,7 @@ struct Adobe_DownloaderApp: App {
     
     private var storage: StorageData { StorageData.shared }
     private let updaterController: SPUStandardUpdaterController
+    private let updateNotifier = UpdateNotifier()
 
     init() {
         let preferredLanguage = UserDefaults.standard.string(forKey: "AppLanguageOverride") ?? "en"
@@ -26,10 +39,11 @@ struct Adobe_DownloaderApp: App {
         globalNewDownloadUtils = NewDownloadUtils()
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: updateNotifier,
             userDriverDelegate: nil
         )
         updaterController.updater.automaticallyChecksForUpdates = true
+        NotificationManager.shared.requestAuthorization()
         
         if storage.installedHelperBuild == "0" {
             storage.installedHelperBuild = "0"
@@ -142,6 +156,13 @@ struct Adobe_DownloaderApp: App {
     private func setupApplication() async {
          Task {
              PrivilegedHelperAdapter.shared.checkInstall()
+             PrivilegedHelperAdapter.shared.getHelperStatus { status in
+                 if status != .installed {
+                     PrivilegedHelperAdapter.shared.reinstallHelper { _, _ in }
+                 } else {
+                     PrivilegedHelperAdapter.shared.reconnectHelper { _, _ in }
+                 }
+             }
          }
 
         await MainActor.run {

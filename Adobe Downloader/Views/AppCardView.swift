@@ -298,7 +298,7 @@ final class AppCardViewModel: ObservableObject {
     }
     
     var downloadButtonTitle: String {
-        isDownloading ? String(localized: "下载中") : String(localized: "下载")
+        isDownloading ? String(localized: "下载中") : String(localized: "下载并安装")
     }
     
     var downloadButtonIcon: String {

@@ -13,12 +13,9 @@ struct DownloadProgressView: View {
     let onRetry: () -> Void
     let onRemove: () -> Void
     
-    @State private var showInstallPrompt = false
-    @State private var isInstalling = false
     @State private var isPackageListExpanded: Bool = false
     @State private var expandedProducts: Set<String> = []
     @State private var iconImage: NSImage? = nil
-    @State private var showSetupProcessAlert = false
     @State private var showCommandLineInstall = false
     @State private var showCopiedAlert = false
     @State private var showDeleteConfirmation = false
@@ -123,73 +120,12 @@ struct DownloadProgressView: View {
                 .buttonStyle(BeautifulButtonStyle(baseColor: .red))
                 
             case .completed:
-                HStack(spacing: 12) {
-                    if task.displayInstallButton {
-                        #if DEBUG
-                        Button(action: { 
-                            do {
-                                _ = try PrivilegedHelperAdapter.shared.getHelperProxy()
-                                showInstallPrompt = false
-                                isInstalling = true
-                                Task {
-                                    await globalNetworkManager.installProduct(at: task.directory)
-                                }
-                            } catch {
-                                showSetupProcessAlert = true
-                            }
-                        }) {
-                            Label("安装", systemImage: "tray.and.arrow.down")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white)
-                        }
-                        .buttonStyle(BeautifulButtonStyle(baseColor: .green))
-                        .alert("Setup 组件未处理", isPresented: $showSetupProcessAlert) {
-                            Button("确定") { }
-                        } message: {
-                            if !ModifySetup.isSetupModified() {
-                                Text("未对 Setup 组件进行处理或者 Setup 组件不存在，无法使用安装功能\n你可以通过设置页面再次对 Setup 组件进行处理")
-                                    .font(.system(size: 18))
-                            } else {
-                                Text("Helper 未启用或未连接，请先在设置中启用并连接 Helper")
-                                    .font(.system(size: 18))
-                            }
-                        }
-                        #else
-                        if ModifySetup.isSetupModified() {
-                            Button(action: { 
-                                do {
-                                    _ = try PrivilegedHelperAdapter.shared.getHelperProxy()
-                                    showInstallPrompt = false
-                                    isInstalling = true
-                                    Task {
-                                        await globalNetworkManager.installProduct(at: task.directory)
-                                    }
-                                } catch {
-                                    showSetupProcessAlert = true
-                                }
-                            }) {
-                                Label("安装", systemImage: "tray.and.arrow.down")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                            .buttonStyle(BeautifulButtonStyle(baseColor: .green))
-                            .alert("Helper 未连接", isPresented: $showSetupProcessAlert) {
-                                Button("确定") { }
-                            } message: {
-                                Text("Helper 未启用或未连接，请先在设置中启用并连接 Helper")
-                                    .font(.system(size: 18))
-                            }
-                        } 
-                        #endif
-                    }
-                    
-                    Button(action: { showDeleteConfirmation = true }) {
-                        Label("删除", systemImage: "trash")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(BeautifulButtonStyle(baseColor: .red))
+                Button(action: { showDeleteConfirmation = true }) {
+                    Label("删除", systemImage: "trash")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
                 }
+                .buttonStyle(BeautifulButtonStyle(baseColor: .red))
                 
             case .retrying:
                 Button(action: { showCancelConfirmation = true }) {
@@ -215,91 +151,6 @@ struct DownloadProgressView: View {
             }
         } message: {
             Text("确定要取消\(task.displayName)的下载吗？")
-        }
-        .sheet(isPresented: $showInstallPrompt) {
-            if task.displayInstallButton {
-                VStack(spacing: 20) {
-                    Text(String(format: String(localized: "是否要安装 %1$@?"), task.displayName))
-                        .font(.headline)
-                    
-                    Text(String(format: String(localized: "安装位置：%1$@\n可在设置中修改下载/安装目录"), task.directory.path))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    HStack(spacing: 16) {
-                        Button("取消") {
-                            showInstallPrompt = false
-                        }
-                        .buttonStyle(.bordered)
-                        
-                        Button("安装") {
-                            showInstallPrompt = false
-                            isInstalling = true
-                            Task {
-                                await globalNetworkManager.installProduct(at: task.directory)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
-                .padding()
-                .frame(width: 300)
-            }
-        }
-        .sheet(isPresented: $isInstalling) {
-            Group {
-                if case .installing(let progress, let status) = globalNetworkManager.installationState {
-                    InstallProgressView(
-                        productName: task.displayName,
-                        progress: progress,
-                        status: status,
-                        onCancel: {
-                            globalNetworkManager.cancelInstallation()
-                            isInstalling = false
-                        },
-                        onRetry: nil
-                    )
-                } else if case .completed = globalNetworkManager.installationState {
-                    InstallProgressView(
-                        productName: task.displayName,
-                        progress: 1.0,
-                        status: String(localized: "安装完成"),
-                        onCancel: {
-                            isInstalling = false
-                        },
-                        onRetry: nil
-                    )
-                } else if case .failed(let error, let errorDetails) = globalNetworkManager.installationState {
-                    InstallProgressView(
-                        productName: task.displayName,
-                        progress: 0,
-                        status: String(localized: "安装失败: \(error.localizedDescription)"),
-                        onCancel: {
-                            isInstalling = false
-                        },
-                        onRetry: {
-                            Task {
-                                await globalNetworkManager.retryInstallation(at: task.directory)
-                            }
-                        },
-                        errorDetails: errorDetails
-                    )
-                } else {
-                    InstallProgressView(
-                        productName: task.displayName,
-                        progress: 0,
-                        status: String(localized: "准备安装..."),
-                        onCancel: {
-                            globalNetworkManager.cancelInstallation()
-                            isInstalling = false
-                        },
-                        onRetry: nil
-                    )
-                }
-            }
-            .frame(minWidth: 700, minHeight: 200)
-            .background(Color(NSColor.windowBackgroundColor))
         }
     }
     
